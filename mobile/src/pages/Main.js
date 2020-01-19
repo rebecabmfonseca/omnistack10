@@ -3,9 +3,12 @@ import { StyleSheet, Image, View, Text, TextInput, TouchableOpacity } from 'reac
 import MapView, { Marker, Callout } from 'react-native-maps'
 import { requestPermissionsAsync, getCurrentPositionAsync } from 'expo-location'
 import { MaterialIcons } from '@expo/vector-icons'
+import api from '../services/api';
 
 function Main({ navigation }) {
     const [regiaoAtual, setRegiaoAtual] = useState(null);
+    const [devs, setDevs] = useState([]);
+    const [techs, setTechs] = useState('')
 
     useEffect(() => {
         async function carregaPosicaoInicial() {
@@ -30,22 +33,45 @@ function Main({ navigation }) {
         return null;
     }
 
+    function handleRegionChanged(region) {
+        console.log(region)
+        setRegiaoAtual(region)
+    }
+
+    async function carregaDevs() {
+        const { latitude, longitude } = regiaoAtual
+        const response = await api.get('/search', {
+            params: {
+                latitude,
+                longitude,
+                techs
+            }
+        });
+        console.log(response.data)
+        setDevs(response.data)
+    }
+    carregaDevs()
+
     return (
         <>
-            <MapView initialRegion={regiaoAtual} style={styles.map} >
-                <Marker coordinate={{ latitude: -22.8618696, longitude: -43.2763482 }} >
-                    <Image style={styles.marker}
-                        source={{ uri: "https://avatars3.githubusercontent.com/u/4217842?s=460&v=4" }} />
-                    <Callout onPress={() => {
-                        navigation.navigate('Profile', { github_user: 'rebecabmfonseca' })
-                    }}>
-                        <View style={styles.callout}>
-                            <Text style={styles.devNome}>Rebeca</Text>
-                            <Text style={styles.devBio}>Biografia nao autorizada.</Text>
-                            <Text style={styles.devTechs}>React, Java, Mobile</Text>
-                        </View>
-                    </Callout>
-                </Marker>
+            <MapView onRegionChangeComplete={handleRegionChanged} initialRegion={regiaoAtual} style={styles.map} >
+                {devs.map(dev => (
+                    <Marker key={dev._id} coordinate={
+                        { latitude: dev.location.coordinates[1],
+                          longitude: dev.location.coordinates[0] }} >
+                        <Image style={styles.marker}
+                            source={{ uri: dev.avatar_url }} />
+                        <Callout onPress={() => {
+                            navigation.navigate('Profile', { github_user: dev.github_user })
+                        }}>
+                            <View style={styles.callout}>
+                                <Text style={styles.devNome}>{dev.name}</Text>
+                                <Text style={styles.devBio}>{dev.bio}</Text>
+                                <Text style={styles.devTechs}>{dev.techs.join(', ')}</Text>
+                            </View>
+                        </Callout>
+                    </Marker>
+                ))}
             </MapView>
             <View style={styles.searchForm}>
                 <TextInput style={styles.searchInput}
@@ -53,8 +79,10 @@ function Main({ navigation }) {
                     placeholderTextColor='#999'
                     autoCapitalize='words'
                     autoCorrect={false}
+                    value={techs}
+                    onChangeText={text => setTechs(text)}
                 />
-                <TouchableOpacity onPress={()=> {}} style={styles.carregaBotao} >
+                <TouchableOpacity onPress={carregaDevs} style={styles.carregaBotao} >
                     <MaterialIcons name="my-location" size={20} color='#FFF' />
                 </TouchableOpacity>
             </View>
@@ -87,18 +115,18 @@ const styles = StyleSheet.create({
     devTechs: {
         marginTop: 5
     },
-    searchForm:{
-        position: 'absolute',   
-        bottom: 20,
-        left:20,
-        right:20,
-        zIndex:5,
-        flexDirection:'row'
-    
+    searchForm: {
+        position: 'absolute',
+        top: 20,
+        left: 20,
+        right: 20,
+        zIndex: 5,
+        flexDirection: 'row'
+
     },
-    searchInput:{
-        flex:1,
-        height:50,
+    searchInput: {
+        flex: 1,
+        height: 50,
         backgroundColor: '#fff',
         color: '#333',
         borderRadius: 25,
@@ -112,8 +140,8 @@ const styles = StyleSheet.create({
         },
         elevation: 2
     },
-    carregaBotao:{
-        width:50,
+    carregaBotao: {
+        width: 50,
         height: 50,
         backgroundColor: '#8e4dff',
         borderRadius: 25,
